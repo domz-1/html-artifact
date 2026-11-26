@@ -15,7 +15,8 @@ Edit, add, or delete rules below to tune the visual personality of every artifac
 - No scattered fade-up scroll animations on every block; reserve motion for user-triggered state changes or 1 focal moment.
 
 ## 3. Typography & Hierarchy
-- Max 1–2 font families. Set deliberate scale, tight display tracking (`-0.025em`), comfortable body measure (`< 75ch`), and `font-variant-numeric: tabular-nums` on numbers.
+- Max 1–2 font families. Lead font stacks with **Figma-native Google Fonts** (`"Plus Jakarta Sans"`, `"DM Sans"`, `"Newsreader"`, `"JetBrains Mono"`, `"IBM Plex Sans Arabic"`) and standard weights (`400`, `500`, `600`, `700`) — never put OS-only fonts (`-apple-system`, `SF Pro Text`, `Iowan Old Style`) first, as they paste invisible in Figma on Linux/Web.
+- Set deliberate scale, tight display tracking (`-0.025em`), comfortable body measure (`< 75ch`), and `font-variant-numeric: tabular-nums` on numbers.
 - High contrast between primary text and surfaces in both light and dark modes.
 
 ## 4. Interactivity & Craft

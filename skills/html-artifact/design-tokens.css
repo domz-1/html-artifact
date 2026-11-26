@@ -24,11 +24,11 @@
   --warn: #b45309;
   --danger: #be123c;
 
-  /* Typography */
-  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
-  --font-display: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", system-ui, sans-serif;
-  --font-serif: "Iowan Old Style", "New York", Georgia, Cambria, serif;
-  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  /* Typography (Figma-native Google Fonts first -> never invisible on Figma Linux/Web) */
+  --font-sans: "Plus Jakarta Sans", "IBM Plex Sans Arabic", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  --font-display: "Plus Jakarta Sans", "IBM Plex Sans Arabic", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  --font-serif: "Newsreader", Georgia, Cambria, serif;
+  --font-mono: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
 
   /* Radii (vary intentionally by hierarchy, never one flat radius everywhere) */
   --radius-sm: 8px;

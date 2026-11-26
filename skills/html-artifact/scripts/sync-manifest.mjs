@@ -105,7 +105,31 @@ function stripComments(css) {
 function normalizeDeclarations(body) {
   return body
     .replace(/position\s*:\s*fixed\b/gi, 'position: absolute')
-    .replace(/\b100d?vh\b/gi, '100%');
+    .replace(/\b100d?vh\b/gi, '100%')
+    .replace(/font-weight\s*:\s*450\b/gi, 'font-weight: 500')
+    .replace(/font-weight\s*:\s*550\b/gi, 'font-weight: 600')
+    .replace(/font-weight\s*:\s*650\b/gi, 'font-weight: 600');
+}
+
+/* Map OS-only fonts (missing in Figma on Linux/Web) -> Figma built-in Google Fonts */
+function mapToFigmaFonts(css) {
+  return css
+    .replace(
+      /(--font-sans\s*:|font-family\s*:)([^;{}]*(?:-apple-system|BlinkMacSystemFont|SF Pro Text|SF Pro Display|Segoe UI|system-ui)[^;{}]*)/gi,
+      '$1 "Plus Jakarta Sans", "IBM Plex Sans Arabic", sans-serif'
+    )
+    .replace(
+      /(--font-ui-display\s*:)([^;{}]*(?:-apple-system|BlinkMacSystemFont|SF Pro|Segoe UI|system-ui)[^;{}]*)/gi,
+      '$1 "Plus Jakarta Sans", "IBM Plex Sans Arabic", sans-serif'
+    )
+    .replace(
+      /(--font-(?:display|serif)\s*:)([^;{}]*(?:Iowan Old Style|New York|Georgia|Times New Roman)[^;{}]*)/gi,
+      '$1 "Newsreader", serif'
+    )
+    .replace(
+      /(--font-mono\s*:|font-family\s*:)([^;{}]*(?:ui-monospace|SF Mono|Menlo|Consolas)[^;{}]*)/gi,
+      '$1 "JetBrains Mono", monospace'
+    );
 }
 
 function scopeSingleSelector(sel, scope) {
@@ -234,7 +258,7 @@ function extractPageSnapshot(html, tokensCss, scopeId) {
   bodyHtml = namespaceSvgIds(bodyHtml, scopeId);
 
   const combinedCss = [tokensCss, ...styleBlocks].join('\n');
-  const scopedCss = scopeCss(combinedCss, scopeId);
+  const scopedCss = scopeCss(mapToFigmaFonts(combinedCss), scopeId);
 
   return { scopeId, theme, dir: dirAttr, css: scopedCss, html: bodyHtml };
 }
@@ -296,12 +320,15 @@ const figmaBoardHtml = `<!doctype html>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>${existingConfig.title || 'Figma Board'} — 1:1 Capture</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" />
   <style>
     * { box-sizing: border-box; }
     html, body {
       margin: 0; padding: 0;
       background: #11141a;
-      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
+      font-family: "Plus Jakarta Sans", "IBM Plex Sans Arabic", sans-serif;
     }
     .fb-board {
       display: inline-flex;
