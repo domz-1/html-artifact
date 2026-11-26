@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Slide Deck</title>
+  <style>
+    :root {
+      --bg: #0d1117; --surface: #161b22; --text: #f0f6fc; --muted: #8b949e;
+      --accent: #38bdf8; --border: rgba(240,246,252,0.12);
+      --font: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", system-ui, sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--text); font-family: var(--font); overflow: hidden; }
+    .deck { height: 100vh; width: 100vw; position: relative; }
+    .slide {
+      position: absolute; inset: 0; padding: clamp(32px, 7vw, 88px);
+      display: none; flex-direction: column; justify-content: center; max-width: 1120px; margin: 0 auto;
+    }
+    .slide.active { display: flex; }
+    h1 { font-size: clamp(36px, 6vw, 64px); letter-spacing: -0.03em; line-height: 1.08; margin: 0 0 18px; }
+    h2 { font-size: clamp(26px, 4vw, 42px); letter-spacing: -0.02em; margin: 0 0 16px; }
+    p, li { font-size: clamp(16px, 2vw, 22px); color: var(--muted); line-height: 1.5; max-width: 60ch; }
+    .bar {
+      position: fixed; bottom: 20px; left: 24px; right: 24px;
+      display: flex; align-items: center; justify-content: space-between; font-size: 13px; color: var(--muted);
+    }
+    .bar button {
+      background: var(--surface); color: var(--text); border: 1px solid var(--border);
+      padding: 6px 14px; border-radius: 999px; cursor: pointer;
+    }
+    .progress { position: fixed; top: 0; left: 0; height: 3px; background: var(--accent); transition: width 200ms; }
+  </style>
+</head>
+<body>
+  <div class="progress" id="progress"></div>
+  <main class="deck">
+    <section class="slide active">
+      <h1>Presentation Title</h1>
+      <p>Use arrow keys or buttons below to navigate slides.</p>
+    </section>
+    <section class="slide">
+      <h2>Core Point</h2>
+      <ul>
+        <li>Zero React, zero bundler — opens instantly anywhere.</li>
+        <li>Edit colors, typography, and slides in one HTML file.</li>
+      </ul>
+    </section>
+    <section class="slide">
+      <h2>Next Step</h2>
+      <p>Replace these slides with real domain narrative, SVG diagrams, or live demos.</p>
+    </section>
+  </main>
+  <footer class="bar">
+    <span id="counter">1 / 3</span>
+    <div style="display:flex;gap:8px">
+      <button id="prev">← Prev</button>
+      <button id="next">Next →</button>
+    </div>
+  </footer>
+  <script>
+    const slides = [...document.querySelectorAll('.slide')];
+    let i = 0;
+    const show = n => {
+      i = Math.max(0, Math.min(slides.length - 1, n));
+      slides.forEach((s, idx) => s.classList.toggle('active', idx === i));
+      document.getElementById('counter').textContent = `${i + 1} / ${slides.length}`;
+      document.getElementById('progress').style.width = `${((i + 1) / slides.length) * 100}%`;
+    };
+    document.getElementById('prev').onclick = () => show(i - 1);
+    document.getElementById('next').onclick = () => show(i + 1);
+    window.addEventListener('keydown', e => {
+      if (e.key === 'ArrowRight' || e.key === ' ') show(i + 1);
+      if (e.key === 'ArrowLeft') show(i - 1);
+    });
+    show(0);
+  </script>
+</body>
+</html>

@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Document Title</title>
+  <style>
+    :root {
+      --bg: #f7f7f5;
+      --surface: #ffffff;
+      --surface-subtle: #efefe9;
+      --text: #16181d;
+      --text-secondary: #434955;
+      --text-muted: #6e7685;
+      --border: rgba(22, 24, 29, 0.10);
+      --accent: #0f62fe;
+      --accent-soft: rgba(15, 98, 254, 0.09);
+      --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
+      --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+      --radius: 12px;
+    }
+    [data-theme="dark"] {
+      --bg: #0e1116;
+      --surface: #151a22;
+      --surface-subtle: #1d2430;
+      --text: #f1f4f9;
+      --text-secondary: #c7d0dd;
+      --text-muted: #8b96a8;
+      --border: rgba(241, 244, 249, 0.10);
+      --accent: #38bdf8;
+      --accent-soft: rgba(56, 189, 248, 0.14);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-sans);
+      line-height: 1.65;
+      -webkit-font-smoothing: antialiased;
+    }
+    .progress {
+      position: fixed; top: 0; left: 0; height: 2px; width: 0;
+      background: var(--accent); z-index: 50; transition: width 80ms linear;
+    }
+    .shell {
+      max-width: 1080px; margin: 0 auto; padding: 36px 24px 96px;
+      display: grid; grid-template-columns: 210px minmax(0, 70ch); gap: 48px;
+      align-items: start;
+    }
+    @media (max-width: 860px) {
+      .shell { grid-template-columns: 1fr; gap: 24px; }
+      aside { position: static !important; }
+    }
+    aside { position: sticky; top: 28px; font-size: 13px; }
+    .toc-title { font-weight: 600; color: var(--text-muted); margin-bottom: 10px; }
+    .toc a {
+      display: block; padding: 5px 10px; border-left: 2px solid var(--border);
+      color: var(--text-secondary); text-decoration: none; transition: 150ms;
+    }
+    .toc a:hover, .toc a.active { color: var(--accent); border-left-color: var(--accent); }
+    .topbar {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 24px; gap: 12px;
+    }
+    .btn {
+      border: 1px solid var(--border); background: var(--surface); color: var(--text);
+      padding: 6px 12px; border-radius: 999px; font-size: 12.5px; cursor: pointer;
+    }
+    h1 { font-size: clamp(28px, 4vw, 38px); letter-spacing: -0.025em; line-height: 1.15; margin: 0 0 12px; }
+    h2 { font-size: 21px; letter-spacing: -0.015em; margin: 40px 0 12px; padding-top: 12px; border-top: 1px solid var(--border); }
+    .lead { font-size: 16px; color: var(--text-secondary); margin: 0 0 28px; }
+    .callout {
+      background: var(--accent-soft); border-left: 3px solid var(--accent);
+      padding: 14px 18px; border-radius: 0 var(--radius) var(--radius) 0; margin: 20px 0;
+    }
+    .tabs { display: flex; gap: 6px; margin-bottom: 12px; }
+    .tab {
+      border: 1px solid var(--border); background: var(--surface-subtle); color: var(--text-secondary);
+      padding: 6px 12px; border-radius: 8px; font-size: 13px; cursor: pointer;
+    }
+    .tab[aria-selected="true"] { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px; }
+    .panel[hidden] { display: none; }
+    pre {
+      background: var(--surface-subtle); padding: 14px; border-radius: 10px;
+      overflow-x: auto; font-family: var(--font-mono); font-size: 13px;
+    }
+    @media print { aside, .topbar, .progress { display: none; } .shell { display: block; } }
+  </style>
+</head>
+<body>
+  <div class="progress" id="progress"></div>
+  <div class="shell">
+    <aside>
+      <div class="toc-title">On this page</div>
+      <nav class="toc">
+        <a href="#overview" class="active">Overview</a>
+        <a href="#comparison">Interactive View</a>
+        <a href="#decisions">Key Decisions</a>
+      </nav>
+    </aside>
+    <main>
+      <div class="topbar">
+        <span style="font-size:13px;color:var(--text-muted)">Single-File HTML Document</span>
+        <button class="btn" id="themeBtn">Toggle theme</button>
+      </div>
+      <h1>Document Title</h1>
+      <p class="lead">Concise framing sentence summarizing what this page explains or decides.</p>
+
+      <section id="overview">
+        <h2>Overview</h2>
+        <p>Replace with concrete domain prose. Keep measure tight and structure scannable.</p>
+        <div class="callout"><strong>Key takeaway:</strong> Highlight the single most important decision here.</div>
+      </section>
+
+      <section id="comparison">
+        <h2>Interactive View</h2>
+        <div class="tabs" role="tablist">
+          <button class="tab" role="tab" aria-selected="true" data-tab="a">Option A</button>
+          <button class="tab" role="tab" aria-selected="false" data-tab="b">Option B</button>
+        </div>
+        <div class="panel" data-panel="a">Details, metrics, or diagram for Option A.</div>
+        <div class="panel" data-panel="b" hidden>Details, metrics, or diagram for Option B.</div>
+      </section>
+
+      <section id="decisions">
+        <h2>Key Decisions</h2>
+        <pre><code>// Optional concrete config or snippet</code></pre>
+      </section>
+    </main>
+  </div>
+  <script>
+    const root = document.documentElement;
+    document.getElementById('themeBtn').onclick = () => {
+      root.dataset.theme = root.dataset.theme === 'dark' ? 'light' : 'dark';
+    };
+    window.addEventListener('scroll', () => {
+      const h = document.documentElement;
+      const pct = (h.scrollTop / (h.scrollHeight - h.clientHeight || 1)) * 100;
+      document.getElementById('progress').style.width = pct + '%';
+    });
+    document.querySelectorAll('.tab').forEach(btn => {
+      btn.onclick = () => {
+        const id = btn.dataset.tab;
+        document.querySelectorAll('.tab').forEach(b => b.setAttribute('aria-selected', String(b === btn)));
+        document.querySelectorAll('.panel').forEach(p => p.hidden = p.dataset.panel !== id);
+      };
+    });
+  </script>
+</body>
+</html>

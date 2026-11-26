@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Page Title</title>
+  <!-- Shared project tokens: edit ../tokens.css once to restyle all pages -->
+  <link rel="stylesheet" href="../tokens.css" />
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; min-height: 100vh;
+      background: var(--bg); color: var(--text);
+      font-family: var(--font-sans); line-height: 1.55;
+      padding: 20px;
+    }
+    .card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius-md); padding: 16px;
+      box-shadow: var(--shadow-sm);
+    }
+    .hotspot-flash {
+      outline: 2.5px solid #38bdf8 !important;
+      outline-offset: 2px;
+      box-shadow: 0 0 0 6px rgba(56, 189, 248, 0.25) !important;
+      transition: outline 160ms, box-shadow 160ms;
+    }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <h1 style="margin:0 0 8px;font-size:20px;letter-spacing:-0.02em">Page Title</h1>
+    <p style="margin:0 0 14px;color:var(--text-secondary);font-size:14px">
+      Standalone editable HTML page. Use <code>data-goto="page-id"</code> or <code>data-back</code> for Figma-style prototype linking.
+    </p>
+    <button data-goto="detail" style="padding:8px 14px;border-radius:10px;border:0;background:var(--accent);color:var(--accent-contrast);font-weight:600;cursor:pointer">
+      Go to Detail →
+    </button>
+  </main>
+
+  <!-- Prototype Bridge: connects data-goto / data-back with canvas.html & works standalone -->
+  <script>
+    (() => {
+      document.addEventListener('click', (e) => {
+        const backBtn = e.target.closest('[data-back]');
+        if (backBtn) {
+          e.preventDefault();
+          if (window.parent !== window) window.parent.postMessage({ type: 'canvas:back' }, '*');
+          else history.back();
+          return;
+        }
+        const gotoEl = e.target.closest('[data-goto]');
+        if (gotoEl) {
+          e.preventDefault();
+          const target = gotoEl.dataset.goto;
+          if (window.parent !== window) {
+            window.parent.postMessage({ type: 'canvas:goto', target }, '*');
+          } else {
+            const href = gotoEl.getAttribute('href') || `./${target}.html`;
+            location.href = href;
+          }
+        }
+      });
+
+      window.addEventListener('message', (e) => {
+        if (e.data?.type === 'canvas:flash-hotspots') {
+          const els = document.querySelectorAll('[data-goto], [data-back]');
+          els.forEach(el => el.classList.add('hotspot-flash'));
+          setTimeout(() => els.forEach(el => el.classList.remove('hotspot-flash')), 700);
+        }
+      });
+    })();
+  </script>
+</body>
+</html>

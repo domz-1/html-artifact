@@ -1,0 +1,740 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Canvas Studio — HTML Prototype Board</title>
+  <style>
+    :root {
+      --bg: #eef1f5;
+      --dot: rgba(15, 23, 42, 0.13);
+      --chrome: rgba(255, 255, 255, 0.86);
+      --chrome-solid: #ffffff;
+      --surface: #f5f7fa;
+      --text: #0f172a;
+      --muted: #64748b;
+      --border: rgba(15, 23, 42, 0.10);
+      --border-strong: rgba(15, 23, 42, 0.20);
+      --accent: #0f62fe;
+      --accent-soft: rgba(15, 98, 254, 0.12);
+      --flow: #0f62fe;
+      --shadow: 0 22px 52px -18px rgba(15, 23, 42, 0.24), 0 4px 14px -4px rgba(15, 23, 42, 0.08);
+      --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
+      --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    }
+    [data-theme="dark"] {
+      --bg: #0c0f14;
+      --dot: rgba(255, 255, 255, 0.09);
+      --chrome: rgba(19, 24, 32, 0.86);
+      --chrome-solid: #141922;
+      --surface: #1b222e;
+      --text: #f1f5f9;
+      --muted: #8b98ab;
+      --border: rgba(255, 255, 255, 0.10);
+      --border-strong: rgba(255, 255, 255, 0.20);
+      --accent: #38bdf8;
+      --accent-soft: rgba(56, 189, 248, 0.16);
+      --flow: #38bdf8;
+      --shadow: 0 28px 66px -18px rgba(0, 0, 0, 0.68), 0 4px 16px -4px rgba(0, 0, 0, 0.42);
+    }
+
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; overflow: hidden; font-family: var(--font); color: var(--text); background: var(--bg); }
+
+    /* Minimal Top Floating Toolbar (No Redundant Sidebar) */
+    .toolbar {
+      position: fixed; top: 12px; left: 50%; transform: translateX(-50%); z-index: 40;
+      height: 44px; padding: 0 10px; border-radius: 999px; max-width: calc(100vw - 24px);
+      background: var(--chrome); backdrop-filter: blur(22px) saturate(170%);
+      -webkit-backdrop-filter: blur(22px) saturate(170%);
+      border: 1px solid var(--border);
+      display: flex; align-items: center; gap: 6px;
+      box-shadow: 0 10px 28px -10px rgba(0, 0, 0, 0.30);
+    }
+    .brand {
+      font-weight: 650; font-size: 13px; letter-spacing: -0.015em;
+      white-space: nowrap; padding: 0 8px 0 6px;
+    }
+    .sep { width: 1px; height: 18px; background: var(--border); margin: 0 2px; flex-shrink: 0; }
+
+    .btn {
+      height: 30px; padding: 0 10px; border-radius: 999px; border: 1px solid transparent;
+      background: transparent; color: var(--text); font: inherit; font-size: 12px; font-weight: 550;
+      display: inline-flex; align-items: center; gap: 5px; cursor: pointer; white-space: nowrap;
+      transition: background 120ms, border-color 120ms, color 120ms;
+    }
+    .btn:hover { background: var(--surface); border-color: var(--border); }
+    .btn.active { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); }
+    .btn.primary { background: var(--accent); color: #08121c; font-weight: 650; }
+    [data-theme="light"] .btn.primary { color: #ffffff; }
+    .btn.icon { width: 30px; padding: 0; justify-content: center; }
+
+    .seg {
+      display: inline-flex; background: var(--surface); padding: 2px; border-radius: 999px;
+      border: 1px solid var(--border); gap: 2px;
+    }
+    .seg .btn { height: 24px; padding: 0 9px; border: 0; }
+    .seg .btn.active { background: var(--chrome-solid); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,0.18); }
+
+    .zoom-readout {
+      font-family: var(--mono); font-size: 11px; color: var(--muted);
+      min-width: 40px; text-align: center; font-variant-numeric: tabular-nums;
+    }
+
+    /* Full-Bleed Infinite Viewport */
+    .viewport {
+      position: fixed; inset: 0; overflow: hidden; cursor: grab;
+      background-image: radial-gradient(var(--dot) 1.25px, transparent 1.25px);
+      background-size: 24px 24px;
+    }
+    .viewport.panning { cursor: grabbing; }
+    .viewport.interact-mode { cursor: default; }
+
+    .world {
+      position: absolute; top: 0; left: 0; transform-origin: 0 0;
+      will-change: transform;
+    }
+
+    /* Prototype Flow Connectors SVG Layer */
+    .flows-layer {
+      position: absolute; top: 0; left: 0; overflow: visible;
+      pointer-events: none; z-index: 20;
+    }
+    .flows-layer.hidden { display: none; }
+    .flow-path {
+      fill: none; stroke: var(--flow); stroke-width: 2.25;
+      stroke-linecap: round; opacity: 0.78;
+    }
+    .flow-dot { fill: var(--flow); }
+    .flow-pill-bg { fill: var(--chrome-solid); stroke: var(--flow); stroke-width: 1.25; }
+    .flow-pill-text {
+      fill: var(--text); font-family: var(--font); font-size: 11px; font-weight: 600;
+      text-anchor: middle; dominant-baseline: central;
+    }
+
+    /* Artboard Frame — Name Only on Top */
+    .artboard {
+      position: absolute; display: flex; flex-direction: column;
+      user-select: none; z-index: 10;
+    }
+    .artboard.selected .frame-shell {
+      outline: 2px solid var(--accent); outline-offset: 4px;
+    }
+    .ab-header {
+      height: 32px; padding: 0 4px 8px; display: flex; align-items: center;
+      justify-content: space-between; gap: 8px; cursor: grab;
+    }
+    .ab-header:active { cursor: grabbing; }
+    .ab-title {
+      font-size: 13px; font-weight: 600; letter-spacing: -0.01em; color: var(--muted);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      transition: color 120ms;
+    }
+    .artboard:hover .ab-title, .artboard.selected .ab-title { color: var(--text); }
+
+    /* Hover-only micro controls so default canvas stays name-only & spotless */
+    .ab-actions {
+      display: flex; align-items: center; gap: 3px;
+      opacity: 0; pointer-events: none; transition: opacity 140ms ease;
+    }
+    .artboard:hover .ab-actions, .artboard.selected .ab-actions {
+      opacity: 1; pointer-events: auto;
+    }
+    .ab-btn {
+      height: 22px; min-width: 22px; padding: 0 6px; border-radius: 6px;
+      border: 1px solid var(--border); background: var(--chrome-solid); color: var(--muted);
+      font: inherit; font-size: 11px; cursor: pointer;
+      display: inline-flex; align-items: center; justify-content: center;
+    }
+    .ab-btn:hover { color: var(--text); border-color: var(--border-strong); }
+
+    .frame-shell {
+      position: relative; border-radius: 18px; overflow: hidden;
+      background: #ffffff; border: 1px solid var(--border-strong);
+      box-shadow: var(--shadow);
+    }
+    .frame-shell.mobile-bezel { border-radius: 38px; border-width: 6px; border-color: #1f242d; }
+    .frame-shell iframe { display: block; border: 0; background: #ffffff; }
+    .frame-shield { position: absolute; inset: 0; z-index: 5; background: transparent; cursor: grab; }
+    .viewport.interact-mode .frame-shield { display: none; }
+
+    /* Figma-Style Prototype Player (Present Mode) */
+    .present-overlay {
+      position: fixed; inset: 0; z-index: 60; background: rgba(7, 10, 15, 0.90);
+      backdrop-filter: blur(20px); display: none; flex-direction: column;
+      align-items: center; justify-content: center; padding: 20px;
+    }
+    .present-overlay.open { display: flex; }
+    .present-bar {
+      position: fixed; top: 14px; left: 50%; transform: translateX(-50%);
+      background: var(--chrome-solid); border: 1px solid var(--border);
+      border-radius: 999px; padding: 5px 10px; display: flex; align-items: center; gap: 6px;
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+    }
+    .present-stage {
+      margin-top: 46px; display: flex; align-items: center; justify-content: center;
+      position: relative;
+    }
+    .present-frame-wrap {
+      max-width: 94vw; max-height: calc(100vh - 104px);
+      border-radius: 22px; overflow: hidden; border: 1px solid var(--border-strong);
+      box-shadow: 0 32px 84px rgba(0, 0, 0, 0.65); background: #fff;
+      transition: transform 180ms cubic-bezier(0.22, 1, 0.36, 1), opacity 160ms ease;
+    }
+    .present-frame-wrap.mobile-bezel { border-radius: 42px; border: 7px solid #1f242d; }
+    .present-frame-wrap.transitioning { opacity: 0.55; transform: scale(0.985); }
+    .present-frame-wrap iframe { border: 0; display: block; }
+    .present-hint {
+      position: fixed; bottom: 14px; font-size: 11.5px; color: rgba(255,255,255,0.55);
+      pointer-events: none;
+    }
+
+    /* Toast */
+    .toast {
+      position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%) translateY(16px);
+      z-index: 70; background: var(--chrome-solid); color: var(--text);
+      border: 1px solid var(--border-strong); border-radius: 999px;
+      padding: 8px 16px; font-size: 12.5px; font-weight: 550;
+      opacity: 0; pointer-events: none; transition: 200ms;
+      box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
+    }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  </style>
+</head>
+<body>
+  <!-- Minimal Top Toolbar -->
+  <header class="toolbar">
+    <span class="brand" id="projectTitle">Canvas Studio</span>
+    <div class="sep"></div>
+    <div class="seg" title="Arrange artboards or interact inside screens">
+      <button class="btn active" id="modeArrange">Arrange</button>
+      <button class="btn" id="modeInteract">Interact</button>
+    </div>
+    <button class="btn active" id="toggleFlows" title="Show prototype flow arrows (L)">Flows</button>
+    <div class="sep"></div>
+    <button class="btn" id="arrangeRow" title="Align in horizontal flow">Row</button>
+    <button class="btn" id="arrangeGrid" title="Arrange in neat grid">Grid</button>
+    <button class="btn" id="fitAll" title="Fit all screens (F)">Fit</button>
+    <div class="sep"></div>
+    <button class="btn icon" id="zoomOut" title="Zoom out">−</button>
+    <span class="zoom-readout" id="zoomLabel">100%</span>
+    <button class="btn icon" id="zoomIn" title="Zoom in">+</button>
+    <div class="sep"></div>
+    <button class="btn" id="reloadAll" title="Reload all page files (R)">Reload</button>
+    <button class="btn primary" id="presentBtn" title="Run interactive prototype (P)">▶ Prototype</button>
+    <button class="btn" id="exportManifest" title="Copy updated pages-manifest.js">Save</button>
+    <button class="btn icon" id="resetLayout" title="Reset saved coordinates">↺</button>
+    <button class="btn icon" id="themeBtn" title="Switch canvas theme">◐</button>
+  </header>
+
+  <!-- Full-Bleed Infinite Canvas -->
+  <div class="viewport" id="viewport">
+    <div class="world" id="world">
+      <svg class="flows-layer" id="flowsLayer" width="1" height="1"></svg>
+      <div id="artboardsLayer"></div>
+    </div>
+  </div>
+
+  <!-- Figma-Style Interactive Prototype Player -->
+  <div class="present-overlay" id="presentOverlay">
+    <div class="present-bar">
+      <button class="btn" id="pBack" title="Back in navigation history (Backspace)">← Back</button>
+      <button class="btn icon" id="pRestart" title="Restart flow">↺</button>
+      <div class="sep"></div>
+      <button class="btn icon" id="pPrev" title="Previous screen">‹</button>
+      <span id="pTitle" style="font-size:12.5px;font-weight:600;padding:0 6px"></span>
+      <button class="btn icon" id="pNext" title="Next screen">›</button>
+      <div class="sep"></div>
+      <button class="btn" id="pHotspots" title="Highlight clickable hotspots (H)">Hotspots</button>
+      <button class="btn" id="pClose">Esc</button>
+    </div>
+    <div class="present-stage" id="presentStage">
+      <div class="present-frame-wrap" id="presentFrameWrap">
+        <iframe id="pIframe"></iframe>
+      </div>
+    </div>
+    <div class="present-hint">Click interactive buttons inside screen · Click outside to flash hotspots · ← / → switch screens</div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <!-- Real page manifest (works on file:// & http:// with zero CORS) -->
+  <script src="./pages-manifest.js"></script>
+  <script>
+    (() => {
+      const DEFAULT_CONFIG = window.CANVAS_CONFIG || { title: 'Canvas Studio', snap: 20 };
+      const SOURCE_PAGES = Array.isArray(window.CANVAS_MANIFEST) ? window.CANVAS_MANIFEST : [];
+      const STORAGE_KEY = 'html-canvas-v2::' + location.pathname;
+
+      document.getElementById('projectTitle').textContent = DEFAULT_CONFIG.title || 'Canvas Studio';
+      document.title = (DEFAULT_CONFIG.title || 'Canvas Studio') + ' — Prototype';
+
+      function normalizeLinks(raw) {
+        if (!Array.isArray(raw)) return [];
+        return raw.map(item => (typeof item === 'string' ? { to: item, label: '' } : item)).filter(Boolean);
+      }
+
+      function loadPages() {
+        let saved = null;
+        try { saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null'); } catch {}
+        const byId = new Map((saved || []).map(p => [p.id, p]));
+        const merged = SOURCE_PAGES.map((p, idx) => {
+          const prev = byId.get(p.id);
+          return {
+            id: p.id,
+            title: p.title,
+            file: p.file,
+            width: p.width || 390,
+            height: p.height || 844,
+            device: p.device || (p.width <= 460 ? 'mobile' : 'desktop'),
+            links: normalizeLinks(p.links),
+            order: prev?.order ?? idx,
+            x: prev?.x ?? (p.x ?? idx * ((p.width || 390) + 96)),
+            y: prev?.y ?? (p.y ?? 0),
+          };
+        });
+        merged.sort((a, b) => a.order - b.order);
+        return merged;
+      }
+
+      let pages = loadPages();
+      let selectedId = pages[0]?.id || null;
+      let interactMode = false;
+      let showFlows = true;
+      let scale = 0.72;
+      let panX = 80;
+      let panY = 96;
+      let presentIdx = 0;
+      let navHistory = [];
+
+      const viewport = document.getElementById('viewport');
+      const world = document.getElementById('world');
+      const artboardsLayer = document.getElementById('artboardsLayer');
+      const flowsLayer = document.getElementById('flowsLayer');
+      const zoomLabel = document.getElementById('zoomLabel');
+
+      function showToast(msg) {
+        const el = document.getElementById('toast');
+        el.textContent = msg;
+        el.classList.add('show');
+        clearTimeout(showToast._t);
+        showToast._t = setTimeout(() => el.classList.remove('show'), 2000);
+      }
+
+      function persist() {
+        const payload = pages.map((p, i) => ({ id: p.id, order: i, x: p.x, y: p.y }));
+        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(payload)); } catch {}
+      }
+
+      function applyTransform() {
+        world.style.transform = `translate3d(${panX}px, ${panY}px, 0) scale(${scale})`;
+        zoomLabel.textContent = Math.round(scale * 100) + '%';
+        viewport.style.backgroundPosition = `${panX}px ${panY}px`;
+        viewport.style.backgroundSize = `${24 * scale}px ${24 * scale}px`;
+      }
+
+      function setMode(isInteract) {
+        interactMode = isInteract;
+        viewport.classList.toggle('interact-mode', interactMode);
+        document.getElementById('modeArrange').classList.toggle('active', !interactMode);
+        document.getElementById('modeInteract').classList.toggle('active', interactMode);
+      }
+
+      function movePageOrder(idx, delta) {
+        const target = idx + delta;
+        if (target < 0 || target >= pages.length) return;
+        const [item] = pages.splice(idx, 1);
+        pages.splice(target, 0, item);
+        arrangeRow(false);
+      }
+
+      function arrangeRow(fit = true) {
+        let cursorX = 0;
+        pages.forEach((p, i) => {
+          p.order = i;
+          p.x = cursorX;
+          p.y = 0;
+          cursorX += p.width + 96;
+        });
+        persist();
+        renderAll();
+        if (fit) fitAll();
+      }
+
+      function arrangeGrid(fit = true) {
+        const cols = Math.max(2, Math.ceil(Math.sqrt(pages.length)));
+        const maxW = Math.max(...pages.map(p => p.width), 390);
+        const maxH = Math.max(...pages.map(p => p.height), 600);
+        pages.forEach((p, i) => {
+          p.order = i;
+          p.x = (i % cols) * (maxW + 96);
+          p.y = Math.floor(i / cols) * (maxH + 108);
+        });
+        persist();
+        renderAll();
+        if (fit) fitAll();
+      }
+
+      function fitAll() {
+        if (!pages.length) return;
+        const padX = 48, padTop = 84, padBottom = 36;
+        const minX = Math.min(...pages.map(p => p.x));
+        const minY = Math.min(...pages.map(p => p.y));
+        const maxX = Math.max(...pages.map(p => p.x + p.width));
+        const maxY = Math.max(...pages.map(p => p.y + p.height + 40));
+        const bw = Math.max(1, maxX - minX);
+        const bh = Math.max(1, maxY - minY);
+        const availW = Math.max(200, window.innerWidth - padX * 2);
+        const availH = Math.max(200, window.innerHeight - padTop - padBottom);
+        scale = Math.min(1, Math.max(0.18, Math.min(availW / bw, availH / bh) * 0.94));
+        panX = padX + (availW - bw * scale) / 2 - minX * scale;
+        panY = padTop + (availH - bh * scale) / 2 - minY * scale;
+        applyTransform();
+      }
+
+      function focusPage(p) {
+        if (!p) return;
+        selectedId = p.id;
+        const availW = window.innerWidth - 96;
+        const availH = window.innerHeight - 120;
+        scale = Math.min(1, Math.max(0.35, Math.min(availW / (p.width + 64), availH / (p.height + 80))));
+        panX = 48 + (availW - p.width * scale) / 2 - p.x * scale;
+        panY = 78 + (availH - p.height * scale) / 2 - p.y * scale;
+        applyTransform();
+        updateSelectionUI();
+      }
+
+      function updateSelectionUI() {
+        document.querySelectorAll('.artboard').forEach(el => {
+          el.classList.toggle('selected', el.dataset.id === selectedId);
+        });
+      }
+
+      /* Draw Live Figma-Style Prototype Flow Arrows */
+      function renderFlows() {
+        flowsLayer.classList.toggle('hidden', !showFlows);
+        if (!showFlows) return;
+
+        const byId = new Map(pages.map(p => [p.id, p]));
+        let svg = `
+          <defs>
+            <marker id="flow-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+              <path d="M 1 1.5 L 9 5 L 1 8.5 z" fill="var(--flow)" />
+            </marker>
+          </defs>
+        `;
+
+        pages.forEach(src => {
+          const links = src.links || [];
+          links.forEach((lnk, idx) => {
+            const dst = byId.get(lnk.to);
+            if (!dst || dst.id === src.id) return;
+
+            const srcCx = src.x + src.width / 2;
+            const dstCx = dst.x + dst.width / 2;
+            const goingRight = dstCx >= srcCx;
+
+            const offsetY = (idx - (links.length - 1) / 2) * 34;
+            const x1 = goingRight ? src.x + src.width + 8 : src.x - 8;
+            const y1 = src.y + 32 + src.height * 0.45 + offsetY;
+            const x2 = goingRight ? dst.x - 10 : dst.x + dst.width + 10;
+            const y2 = dst.y + 32 + dst.height * 0.45;
+
+            const bend = Math.max(60, Math.abs(x2 - x1) * 0.42);
+            const c1x = goingRight ? x1 + bend : x1 - bend;
+            const c2x = goingRight ? x2 - bend : x2 + bend;
+
+            svg += `<circle class="flow-dot" cx="${x1}" cy="${y1}" r="4" />`;
+            svg += `<path class="flow-path" d="M ${x1} ${y1} C ${c1x} ${y1}, ${c2x} ${y2}, ${x2} ${y2}" marker-end="url(#flow-arrow)" />`;
+
+            if (lnk.label) {
+              const mx = (x1 + x2) / 2;
+              const my = (y1 + y2) / 2;
+              const w = Math.max(44, lnk.label.length * 6.8 + 16);
+              svg += `<rect class="flow-pill-bg" x="${mx - w / 2}" y="${my - 11}" width="${w}" height="22" rx="11" />`;
+              svg += `<text class="flow-pill-text" x="${mx}" y="${my}">${lnk.label}</text>`;
+            }
+          });
+        });
+
+        flowsLayer.innerHTML = svg;
+      }
+
+      function renderArtboards() {
+        artboardsLayer.innerHTML = '';
+        pages.forEach((p, idx) => {
+          const ab = document.createElement('section');
+          ab.className = 'artboard' + (p.id === selectedId ? ' selected' : '');
+          ab.dataset.id = p.id;
+          ab.style.left = p.x + 'px';
+          ab.style.top = p.y + 'px';
+          ab.style.width = p.width + 'px';
+
+          ab.innerHTML = `
+            <div class="ab-header">
+              <span class="ab-title">${p.title}</span>
+              <div class="ab-actions">
+                <button class="ab-btn" data-left title="Move left">←</button>
+                <button class="ab-btn" data-right title="Move right">→</button>
+                <button class="ab-btn" data-reload title="Reload file">↻</button>
+                <button class="ab-btn" data-open title="Open standalone HTML">↗</button>
+                <button class="ab-btn" data-present title="Prototype from here">▶</button>
+              </div>
+            </div>
+            <div class="frame-shell ${p.device === 'mobile' ? 'mobile-bezel' : ''}">
+              <iframe src="${p.file}" width="${p.width}" height="${p.height}" title="${p.title}"></iframe>
+              <div class="frame-shield"></div>
+            </div>
+          `;
+
+          const iframe = ab.querySelector('iframe');
+          ab.querySelector('[data-left]').onclick = (e) => { e.stopPropagation(); movePageOrder(idx, -1); };
+          ab.querySelector('[data-right]').onclick = (e) => { e.stopPropagation(); movePageOrder(idx, 1); };
+          ab.querySelector('[data-reload]').onclick = (e) => {
+            e.stopPropagation();
+            iframe.src = p.file + (p.file.includes('?') ? '&' : '?') + '_r=' + Date.now();
+            showToast('Reloaded ' + p.title);
+          };
+          ab.querySelector('[data-open]').onclick = (e) => { e.stopPropagation(); window.open(p.file, '_blank'); };
+          ab.querySelector('[data-present]').onclick = (e) => { e.stopPropagation(); openPresent(idx, true); };
+
+          const startDrag = (e) => {
+            if (e.button !== 0 || e.target.closest('button')) return;
+            e.stopPropagation();
+            selectedId = p.id;
+            updateSelectionUI();
+            const startX = e.clientX, startY = e.clientY;
+            const origX = p.x, origY = p.y;
+            const snap = DEFAULT_CONFIG.snap || 20;
+            const onMove = (ev) => {
+              const dx = (ev.clientX - startX) / scale;
+              const dy = (ev.clientY - startY) / scale;
+              p.x = Math.round((origX + dx) / snap) * snap;
+              p.y = Math.round((origY + dy) / snap) * snap;
+              ab.style.left = p.x + 'px';
+              ab.style.top = p.y + 'px';
+              renderFlows();
+            };
+            const onUp = () => {
+              window.removeEventListener('pointermove', onMove);
+              window.removeEventListener('pointerup', onUp);
+              persist();
+            };
+            window.addEventListener('pointermove', onMove);
+            window.addEventListener('pointerup', onUp);
+          };
+
+          ab.querySelector('.ab-header').addEventListener('pointerdown', startDrag);
+          ab.querySelector('.frame-shield').addEventListener('pointerdown', startDrag);
+          artboardsLayer.appendChild(ab);
+        });
+      }
+
+      function renderAll() {
+        renderArtboards();
+        renderFlows();
+      }
+
+      /* Pan & Zoom */
+      viewport.addEventListener('pointerdown', (e) => {
+        if (e.target.closest('.artboard') && interactMode) return;
+        if (e.button !== 0 && e.button !== 1) return;
+        viewport.classList.add('panning');
+        const sx = e.clientX - panX, sy = e.clientY - panY;
+        const onMove = (ev) => {
+          panX = ev.clientX - sx;
+          panY = ev.clientY - sy;
+          applyTransform();
+        };
+        const onUp = () => {
+          viewport.classList.remove('panning');
+          window.removeEventListener('pointermove', onMove);
+          window.removeEventListener('pointerup', onUp);
+        };
+        window.addEventListener('pointermove', onMove);
+        window.addEventListener('pointerup', onUp);
+      });
+
+      viewport.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        if (e.ctrlKey || e.metaKey) {
+          const factor = e.deltaY < 0 ? 1.08 : 0.92;
+          const next = Math.min(2, Math.max(0.18, scale * factor));
+          const mx = e.clientX, my = e.clientY;
+          panX = mx - (mx - panX) * (next / scale);
+          panY = my - (my - panY) * (next / scale);
+          scale = next;
+        } else {
+          panX -= e.deltaX;
+          panY -= e.deltaY;
+        }
+        applyTransform();
+      }, { passive: false });
+
+      /* Figma-Style Prototype Player */
+      const presentOverlay = document.getElementById('presentOverlay');
+      const presentFrameWrap = document.getElementById('presentFrameWrap');
+      const pIframe = document.getElementById('pIframe');
+      const pTitle = document.getElementById('pTitle');
+
+      function resolvePageIndex(target) {
+        if (typeof target === 'number') return target;
+        const clean = String(target || '').replace(/^\.\/pages\//, '').replace(/^\.\//, '').replace(/\.html$/, '');
+        return pages.findIndex(p =>
+          p.id === target ||
+          p.id === clean ||
+          p.file === target ||
+          p.file.endsWith('/' + clean + '.html')
+        );
+      }
+
+      function openPresent(idx, resetHistory = false) {
+        if (!pages.length) return;
+        const nextIdx = Math.max(0, Math.min(pages.length - 1, idx));
+        if (resetHistory) {
+          navHistory = [];
+        } else if (presentOverlay.classList.contains('open') && nextIdx !== presentIdx) {
+          navHistory.push(presentIdx);
+        }
+        presentIdx = nextIdx;
+        const p = pages[presentIdx];
+        pTitle.textContent = p.title;
+        presentFrameWrap.classList.toggle('mobile-bezel', p.device === 'mobile');
+        presentFrameWrap.classList.add('transitioning');
+        pIframe.width = Math.min(p.width, window.innerWidth - 64);
+        pIframe.height = Math.min(p.height, window.innerHeight - 130);
+        pIframe.src = p.file;
+        setTimeout(() => presentFrameWrap.classList.remove('transitioning'), 140);
+        document.getElementById('pBack').style.opacity = navHistory.length ? '1' : '0.45';
+        presentOverlay.classList.add('open');
+      }
+
+      function goBackPresent() {
+        if (!navHistory.length) return;
+        const prevIdx = navHistory.pop();
+        presentIdx = prevIdx;
+        const p = pages[presentIdx];
+        pTitle.textContent = p.title;
+        presentFrameWrap.classList.toggle('mobile-bezel', p.device === 'mobile');
+        pIframe.src = p.file;
+        document.getElementById('pBack').style.opacity = navHistory.length ? '1' : '0.45';
+      }
+
+      function flashPresentHotspots() {
+        try { pIframe.contentWindow?.postMessage({ type: 'canvas:flash-hotspots' }, '*'); } catch {}
+      }
+
+      function closePresent() {
+        presentOverlay.classList.remove('open');
+        pIframe.src = 'about:blank';
+        navHistory = [];
+      }
+
+      /* Listen for Prototype Navigation Messages from Child Pages */
+      window.addEventListener('message', (e) => {
+        const msg = e.data;
+        if (!msg || typeof msg !== 'object') return;
+        if (msg.type === 'canvas:goto') {
+          const idx = resolvePageIndex(msg.target);
+          if (idx === -1) {
+            showToast('Target screen not found: ' + msg.target);
+            return;
+          }
+          if (presentOverlay.classList.contains('open')) {
+            openPresent(idx, false);
+          } else {
+            focusPage(pages[idx]);
+            showToast('→ ' + pages[idx].title);
+          }
+        } else if (msg.type === 'canvas:back') {
+          if (presentOverlay.classList.contains('open')) goBackPresent();
+        }
+      });
+
+      /* Clicking empty backdrop in Present mode flashes hotspots (just like Figma!) */
+      presentOverlay.addEventListener('click', (e) => {
+        if (e.target === presentOverlay || e.target === document.getElementById('presentStage')) {
+          flashPresentHotspots();
+        }
+      });
+
+      function buildManifestSource() {
+        const clean = pages.map(p => ({
+          id: p.id, title: p.title, file: p.file,
+          width: p.width, height: p.height, device: p.device,
+          links: p.links, x: p.x, y: p.y
+        }));
+        return `// Ordered page registry & prototype links for canvas.html\nwindow.CANVAS_CONFIG = ${JSON.stringify(DEFAULT_CONFIG, null, 2)};\nwindow.CANVAS_MANIFEST = ${JSON.stringify(clean, null, 2)};\n`;
+      }
+
+      /* Wire Toolbar Controls */
+      document.getElementById('modeArrange').onclick = () => setMode(false);
+      document.getElementById('modeInteract').onclick = () => setMode(true);
+      document.getElementById('toggleFlows').onclick = (e) => {
+        showFlows = !showFlows;
+        e.currentTarget.classList.toggle('active', showFlows);
+        renderFlows();
+      };
+      document.getElementById('arrangeRow').onclick = () => arrangeRow(true);
+      document.getElementById('arrangeGrid').onclick = () => arrangeGrid(true);
+      document.getElementById('fitAll').onclick = fitAll;
+      document.getElementById('zoomIn').onclick = () => { scale = Math.min(2, scale + 0.12); applyTransform(); };
+      document.getElementById('zoomOut').onclick = () => { scale = Math.max(0.2, scale - 0.12); applyTransform(); };
+      document.getElementById('reloadAll').onclick = () => {
+        document.querySelectorAll('.artboard iframe').forEach((f, idx) => {
+          const p = pages[idx];
+          if (p) f.src = p.file + (p.file.includes('?') ? '&' : '?') + '_r=' + Date.now();
+        });
+        showToast('Reloaded all pages');
+      };
+      document.getElementById('presentBtn').onclick = () => {
+        const idx = Math.max(0, pages.findIndex(p => p.id === selectedId));
+        openPresent(idx, true);
+      };
+      document.getElementById('pBack').onclick = goBackPresent;
+      document.getElementById('pRestart').onclick = () => openPresent(0, true);
+      document.getElementById('pPrev').onclick = () => openPresent(presentIdx - 1, false);
+      document.getElementById('pNext').onclick = () => openPresent(presentIdx + 1, false);
+      document.getElementById('pHotspots').onclick = flashPresentHotspots;
+      document.getElementById('pClose').onclick = closePresent;
+      document.getElementById('themeBtn').onclick = () => {
+        const h = document.documentElement;
+        h.dataset.theme = h.dataset.theme === 'dark' ? 'light' : 'dark';
+      };
+      document.getElementById('resetLayout').onclick = () => {
+        localStorage.removeItem(STORAGE_KEY);
+        pages = loadPages();
+        renderAll();
+        fitAll();
+        showToast('Layout reset');
+      };
+      document.getElementById('exportManifest').onclick = () => {
+        const src = buildManifestSource();
+        navigator.clipboard?.writeText(src).then(
+          () => showToast('Copied pages-manifest.js'),
+          () => showToast('Manifest logged to console')
+        );
+      };
+
+      window.addEventListener('keydown', (e) => {
+        if (presentOverlay.classList.contains('open')) {
+          if (e.key === 'Escape') closePresent();
+          if (e.key === 'ArrowRight') openPresent(presentIdx + 1, false);
+          if (e.key === 'ArrowLeft') openPresent(presentIdx - 1, false);
+          if (e.key === 'Backspace') goBackPresent();
+          if (e.key === 'h' || e.key === 'H') flashPresentHotspots();
+          return;
+        }
+        if (e.target.tagName === 'INPUT') return;
+        if (e.key === 'f' || e.key === 'F') fitAll();
+        if (e.key === 'r' || e.key === 'R') document.getElementById('reloadAll').click();
+        if (e.key === 'p' || e.key === 'P') document.getElementById('presentBtn').click();
+        if (e.key === 'l' || e.key === 'L') document.getElementById('toggleFlows').click();
+      });
+
+      renderAll();
+      fitAll();
+    })();
+  </script>
+</body>
+</html>
