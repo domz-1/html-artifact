@@ -155,10 +155,14 @@
     }
     .frame-shell.mobile-bezel { border-radius: 38px; border-width: 6px; border-color: #1f242d; }
     .frame-shell iframe { display: block; border: 0; background: #ffffff; }
+    .frame-dom {
+      position: relative; overflow: hidden; contain: layout style paint;
+      text-align: initial;
+    }
     .frame-shield { position: absolute; inset: 0; z-index: 5; background: transparent; cursor: grab; }
     .viewport.interact-mode .frame-shield { display: none; }
 
-    /* Figma-Style Prototype Player (Present Mode) */
+    /* Figma-Style Interactive Prototype Player */
     .present-overlay {
       position: fixed; inset: 0; z-index: 60; background: rgba(7, 10, 15, 0.90);
       backdrop-filter: blur(20px); display: none; flex-direction: column;
@@ -200,13 +204,14 @@
     }
     .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
   </style>
+  <style id="inline-screens-css"></style>
 </head>
 <body>
   <!-- Minimal Top Toolbar -->
   <header class="toolbar">
     <span class="brand" id="projectTitle">Canvas Studio</span>
     <div class="sep"></div>
-    <div class="seg" title="Arrange artboards or interact inside screens">
+    <div class="seg" title="Arrange uses real Light DOM (Figma capture ready); Interact runs live iframes">
       <button class="btn active" id="modeArrange">Arrange</button>
       <button class="btn" id="modeInteract">Interact</button>
     </div>
@@ -220,7 +225,8 @@
     <span class="zoom-readout" id="zoomLabel">100%</span>
     <button class="btn icon" id="zoomIn" title="Zoom in">+</button>
     <div class="sep"></div>
-    <button class="btn" id="reloadAll" title="Reload all page files (R)">Reload</button>
+    <button class="btn" id="figmaBtn" title="Open 1:1 zero-iframe Figma Capture sheet (figma-board.html)">Figma 1:1</button>
+    <button class="btn" id="reloadAll" title="Reload page files (R)">Reload</button>
     <button class="btn primary" id="presentBtn" title="Run interactive prototype (P)">▶ Prototype</button>
     <button class="btn" id="exportManifest" title="Copy updated pages-manifest.js">Save</button>
     <button class="btn icon" id="resetLayout" title="Reset saved coordinates">↺</button>
@@ -258,16 +264,22 @@
 
   <div class="toast" id="toast"></div>
 
-  <!-- Real page manifest (works on file:// & http:// with zero CORS) -->
+  <!-- Ordered manifest + scoped Light-DOM snapshots (both work on file:// & http://, zero CORS) -->
   <script src="./pages-manifest.js"></script>
+  <script src="./pages-inline.js" onerror="window.CANVAS_INLINE={}"></script>
   <script>
     (() => {
       const DEFAULT_CONFIG = window.CANVAS_CONFIG || { title: 'Canvas Studio', snap: 20 };
       const SOURCE_PAGES = Array.isArray(window.CANVAS_MANIFEST) ? window.CANVAS_MANIFEST : [];
+      const INLINE_MAP = window.CANVAS_INLINE || {};
       const STORAGE_KEY = 'html-canvas-v2::' + location.pathname;
 
       document.getElementById('projectTitle').textContent = DEFAULT_CONFIG.title || 'Canvas Studio';
       document.title = (DEFAULT_CONFIG.title || 'Canvas Studio') + ' — Prototype';
+
+      // Inject scoped Light-DOM CSS once so Arrange mode renders real DOM (Figma capture ready, zero blank iframes!)
+      const inlineCssEl = document.getElementById('inline-screens-css');
+      inlineCssEl.textContent = Object.values(INLINE_MAP).map(s => s?.css || '').join('\n');
 
       function normalizeLinks(raw) {
         if (!Array.isArray(raw)) return [];
@@ -318,7 +330,7 @@
         el.textContent = msg;
         el.classList.add('show');
         clearTimeout(showToast._t);
-        showToast._t = setTimeout(() => el.classList.remove('show'), 2000);
+        showToast._t = setTimeout(() => el.classList.remove('show'), 2200);
       }
 
       function persist() {
@@ -334,10 +346,12 @@
       }
 
       function setMode(isInteract) {
+        if (interactMode === isInteract) return;
         interactMode = isInteract;
         viewport.classList.toggle('interact-mode', interactMode);
         document.getElementById('modeArrange').classList.toggle('active', !interactMode);
         document.getElementById('modeInteract').classList.toggle('active', interactMode);
+        renderArtboards();
       }
 
       function movePageOrder(idx, delta) {
@@ -470,6 +484,15 @@
           ab.style.top = p.y + 'px';
           ab.style.width = p.width + 'px';
 
+          const snap = INLINE_MAP[p.id];
+          const useLightDom = !interactMode && snap && snap.html;
+
+          const bodyMarkup = useLightDom
+            ? `<div class="frame-dom" id="${snap.scopeId}" data-theme="${snap.theme || 'light'}" ${
+                snap.dir ? `dir="${snap.dir}"` : ''
+              } style="width:${p.width}px;height:${p.height}px">${snap.html}</div>`
+            : `<iframe src="${p.file}" width="${p.width}" height="${p.height}" title="${p.title}"></iframe>`;
+
           ab.innerHTML = `
             <div class="ab-header">
               <span class="ab-title">${p.title}</span>
@@ -482,18 +505,22 @@
               </div>
             </div>
             <div class="frame-shell ${p.device === 'mobile' ? 'mobile-bezel' : ''}">
-              <iframe src="${p.file}" width="${p.width}" height="${p.height}" title="${p.title}"></iframe>
+              ${bodyMarkup}
               <div class="frame-shield"></div>
             </div>
           `;
 
-          const iframe = ab.querySelector('iframe');
           ab.querySelector('[data-left]').onclick = (e) => { e.stopPropagation(); movePageOrder(idx, -1); };
           ab.querySelector('[data-right]').onclick = (e) => { e.stopPropagation(); movePageOrder(idx, 1); };
           ab.querySelector('[data-reload]').onclick = (e) => {
             e.stopPropagation();
-            iframe.src = p.file + (p.file.includes('?') ? '&' : '?') + '_r=' + Date.now();
-            showToast('Reloaded ' + p.title);
+            const iframe = ab.querySelector('iframe');
+            if (iframe) {
+              iframe.src = p.file + (p.file.includes('?') ? '&' : '?') + '_r=' + Date.now();
+              showToast('Reloaded ' + p.title);
+            } else {
+              location.reload();
+            }
           };
           ab.querySelector('[data-open]').onclick = (e) => { e.stopPropagation(); window.open(p.file, '_blank'); };
           ab.querySelector('[data-present]').onclick = (e) => { e.stopPropagation(); openPresent(idx, true); };
@@ -505,12 +532,12 @@
             updateSelectionUI();
             const startX = e.clientX, startY = e.clientY;
             const origX = p.x, origY = p.y;
-            const snap = DEFAULT_CONFIG.snap || 20;
+            const snapGrid = DEFAULT_CONFIG.snap || 20;
             const onMove = (ev) => {
               const dx = (ev.clientX - startX) / scale;
               const dy = (ev.clientY - startY) / scale;
-              p.x = Math.round((origX + dx) / snap) * snap;
-              p.y = Math.round((origY + dy) / snap) * snap;
+              p.x = Math.round((origX + dx) / snapGrid) * snapGrid;
+              p.y = Math.round((origY + dy) / snapGrid) * snapGrid;
               ab.style.left = p.x + 'px';
               ab.style.top = p.y + 'px';
               renderFlows();
@@ -630,28 +657,19 @@
         navHistory = [];
       }
 
-      /* Listen for Prototype Navigation Messages from Child Pages */
       window.addEventListener('message', (e) => {
         const msg = e.data;
         if (!msg || typeof msg !== 'object') return;
         if (msg.type === 'canvas:goto') {
           const idx = resolvePageIndex(msg.target);
-          if (idx === -1) {
-            showToast('Target screen not found: ' + msg.target);
-            return;
-          }
-          if (presentOverlay.classList.contains('open')) {
-            openPresent(idx, false);
-          } else {
-            focusPage(pages[idx]);
-            showToast('→ ' + pages[idx].title);
-          }
+          if (idx === -1) { showToast('Target screen not found: ' + msg.target); return; }
+          if (presentOverlay.classList.contains('open')) openPresent(idx, false);
+          else { focusPage(pages[idx]); showToast('→ ' + pages[idx].title); }
         } else if (msg.type === 'canvas:back') {
           if (presentOverlay.classList.contains('open')) goBackPresent();
         }
       });
 
-      /* Clicking empty backdrop in Present mode flashes hotspots (just like Figma!) */
       presentOverlay.addEventListener('click', (e) => {
         if (e.target === presentOverlay || e.target === document.getElementById('presentStage')) {
           flashPresentHotspots();
@@ -680,12 +698,17 @@
       document.getElementById('fitAll').onclick = fitAll;
       document.getElementById('zoomIn').onclick = () => { scale = Math.min(2, scale + 0.12); applyTransform(); };
       document.getElementById('zoomOut').onclick = () => { scale = Math.max(0.2, scale - 0.12); applyTransform(); };
+      document.getElementById('figmaBtn').onclick = () => window.open('./figma-board.html', '_blank');
       document.getElementById('reloadAll').onclick = () => {
-        document.querySelectorAll('.artboard iframe').forEach((f, idx) => {
-          const p = pages[idx];
-          if (p) f.src = p.file + (p.file.includes('?') ? '&' : '?') + '_r=' + Date.now();
-        });
-        showToast('Reloaded all pages');
+        if (interactMode) {
+          document.querySelectorAll('.artboard iframe').forEach((f, idx) => {
+            const p = pages[idx];
+            if (p) f.src = p.file + (p.file.includes('?') ? '&' : '?') + '_r=' + Date.now();
+          });
+          showToast('Reloaded live iframes');
+        } else {
+          location.reload();
+        }
       };
       document.getElementById('presentBtn').onclick = () => {
         const idx = Math.max(0, pages.findIndex(p => p.id === selectedId));
